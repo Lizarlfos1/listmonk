@@ -18,6 +18,18 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
   },
   {
+    path: '/sequences',
+    name: 'sequences',
+    meta: { title: 'sequences.title', group: 'sequences' },
+    component: () => import('../views/Sequences.vue'),
+  },
+  {
+    path: '/sequences/:id',
+    name: 'sequence',
+    meta: { title: 'sequences.title', group: 'sequences' },
+    component: () => import('../views/Sequence.vue'),
+  },
+  {
     path: '/lists',
     name: 'lists',
     meta: { title: 'globals.terms.lists', group: 'lists' },

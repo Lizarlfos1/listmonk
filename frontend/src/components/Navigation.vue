@@ -3,6 +3,11 @@
     <b-menu-item :to="{ name: 'dashboard' }" tag="router-link" :active="activeItem.dashboard"
       icon="view-dashboard-variant-outline" :label="$t('menu.dashboard')" /><!-- dashboard -->
 
+    <!-- Sim Sense fork: the drip layer. Sits directly under Dashboard because
+         it is the screen with something waiting on a human. -->
+    <b-menu-item :to="{ name: 'sequences' }" tag="router-link" :active="activeItem.sequences || activeItem.sequence"
+      data-cy="sequences" icon="rocket-launch-outline" :label="$t('sequences.title')" /><!-- sequences -->
+
     <b-menu-item :expanded="activeGroup.lists" :active="activeGroup.lists" data-cy="lists"
       @update:active="(state) => toggleGroup('lists', state)" icon="format-list-bulleted-square"
       :label="$t('globals.terms.lists')">

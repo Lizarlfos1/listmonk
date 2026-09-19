@@ -574,3 +574,26 @@ export const disableTOTP = (id, data) => http.delete(
   `/api/users/${id}/twofa`,
   { data },
 );
+
+// Sim Sense fork: the drip layer.
+//
+// camelCase is off on every call: the CRM API speaks snake_case and the views
+// reference day_offset, step_count and so on directly.
+//
+// Everything goes through /api/crm, which listmonk's Go side proxies to the CRM
+// API with its bearer token attached. The browser therefore never holds a
+// credential that can approve or enrol, and the calls are same-origin.
+export const getSequences = () => http.get('/api/crm/sequences', { camelCase: false });
+
+export const getSequence = (id) => http.get(`/api/crm/sequences/${id}`, { camelCase: false });
+
+export const getSequenceStats = (id) => http.get(`/api/crm/sequences/${id}/stats`, { camelCase: false });
+
+// What approving would do, without doing any of it. The dialog shows this
+// before the button commits, because that is the last point a wrong segment
+// costs nothing.
+export const getSequencePreview = (id) => http.get(`/api/crm/sequences/${id}/preview`, { camelCase: false });
+
+export const approveSequence = (id, data) => http.post(`/api/crm/sequences/${id}/approve`, data, { camelCase: false });
+
+export const pauseSequence = (id) => http.post(`/api/crm/sequences/${id}/pause`, {});

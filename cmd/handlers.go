@@ -100,6 +100,11 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 
 		// API endpoints.
 		g.GET("/api/health", a.HealthCheck)
+
+		// Sim Sense fork: the Sequences section talks to the drip API through
+		// here, so it stays same-origin and the CRM token never reaches a
+		// browser. Inside this group, so a Listmonk session is required.
+		g.Any(crmProxyPrefix+"/*", a.CRMProxy)
 		g.GET("/api/config", a.GetServerConfig)
 		g.GET("/api/lang/:lang", a.GetI18nLang)
 		g.GET("/api/dashboard/charts", a.GetDashboardCharts)

@@ -1420,3 +1420,43 @@ th.role-toggle-select a {
     width: auto;
   }
 }
+
+/* Sim Sense fork: sequences. */
+.sequences, .sequence {
+  .segment {
+    background: #f9f9f9;
+    border: 1px solid $border;
+    border-radius: 3px;
+    padding: 10px;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    /* ->> is the JSON operator in a listmonk segment, not decoration. Some
+       monospace faces ligate it into an arrow, which misreads the query. */
+    font-variant-ligatures: none;
+  }
+
+  .sample-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid $border;
+    border-radius: 3px;
+  }
+  .sample-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: 0.9em;
+    &:not(:last-child) { border-bottom: 1px solid $border; }
+    .email { font-family: monospace; font-variant-ligatures: none; }
+  }
+
+  .headline.box {
+    padding: 16px;
+    margin-bottom: 12px;
+    p { margin: 0; }
+  }
+
+  .tag.active { background: #e8f5e9; color: #256029; }
+  .tag.draft { background: #e3f2fd; color: #0d47a1; }
+  .tag.paused { background: #fff4e5; color: #8a5300; }
+}
