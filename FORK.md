@@ -82,6 +82,9 @@ files, so the merge surface on that view stays small:
 - `components/TemplateGallery.vue`, the cards.
 - `components/TemplateUsedBy.vue`, the sequence chips, used by both views.
 - `components/TemplateTagsDialog.vue`, the tag editor.
+- `components/TemplateTestDialog.vue`, the test send. Also used from
+  `components/SequenceStepDialog.vue`'s footer, which is the other place
+  someone is reading copy and wondering how it lands.
 
 Three things worth knowing before changing them:
 
@@ -94,6 +97,14 @@ Three things worth knowing before changing them:
   `sandbox`ed with no permissions and `pointer-events: none`.
 - **They load on an IntersectionObserver.** Eight templates would be fine loaded
   at once; eighty would be eighty simultaneous renders of HTML email.
+- **The test send is the CRM's, not listmonk's**, through
+  `/api/crm/templates/:id/test`. Listmonk's own test send belongs to a campaign
+  and renders a broadcast body inside a template; a sequence step is a template
+  on its own, sent through `/api/tx`, and testing it any other way would test a
+  different message. Offered on transactional templates only, because that is
+  all `/api/tx` accepts. Its errors are shown in the dialog rather than as a
+  toast: the likely one is the CRM's allowlist refusing the address, and that
+  explanation belongs next to the field that caused it.
 - **Tags and usage come from the CRM**, through `/api/crm/templates/usage` and
   `/api/crm/templates/:id/tags`. The payload deliberately contains no template
   fields: listmonk's own store already holds those, and a second copy is a

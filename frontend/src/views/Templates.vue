@@ -45,7 +45,8 @@
     </b-field>
 
     <template-gallery v-if="view === 'grid'" :templates="visibleTemplates" :usage="usage"
-      @preview="previewTemplate" @edit="showEditForm" @tags="showTagsDialog" @filter-tag="(t) => { tagFilter = t; }" />
+      @preview="previewTemplate" @edit="showEditForm" @tags="showTagsDialog" @test="showTestDialog"
+      @filter-tag="(t) => { tagFilter = t; }" />
 
     <b-table v-else :data="visibleTemplates" :hoverable="true" :loading="loading.templates" default-sort="createdAt">
       <b-table-column v-slot="props" field="name" :label="$t('globals.fields.name')" :td-attrs="$utils.tdID" sortable>
@@ -107,6 +108,14 @@
               <b-icon icon="file-find-outline" size="is-small" />
             </b-tooltip>
           </a>
+          <!-- Transactional only: /api/tx refuses a campaign template, and a
+               broadcast's own test send is the right one for those. -->
+          <a v-if="props.row.type === 'tx'" href="#" @click.prevent="showTestDialog(props.row)" data-cy="btn-test"
+            :aria-label="$t('gallery.testSend')">
+            <b-tooltip :label="$t('gallery.testSend')" type="is-dark">
+              <b-icon icon="email-outline" size="is-small" />
+            </b-tooltip>
+          </a>
           <a href="#" @click.prevent="showEditForm(props.row)" data-cy="btn-edit"
             :aria-label="$t('globals.buttons.edit')">
             <b-tooltip :label="$t('globals.buttons.edit')" type="is-dark">
@@ -159,6 +168,8 @@
 
     <template-tags-dialog v-if="tagsItem" :template="tagsItem" :value="tagsFor(tagsItem)" :suggestions="allTags"
       @saved="onTagsSaved" @close="tagsItem = null" />
+
+    <template-test-dialog v-if="testItem" :template="testItem" @close="testItem = null" />
   </section>
 </template>
 
@@ -169,6 +180,7 @@ import CampaignPreview from '../components/CampaignPreview.vue';
 import EmptyPlaceholder from '../components/EmptyPlaceholder.vue';
 import TemplateGallery from '../components/TemplateGallery.vue';
 import TemplateTagsDialog from '../components/TemplateTagsDialog.vue';
+import TemplateTestDialog from '../components/TemplateTestDialog.vue';
 import TemplateUsedBy from '../components/TemplateUsedBy.vue';
 import { getTemplateUsage } from '../api';
 
@@ -185,6 +197,7 @@ export default Vue.extend({
     EmptyPlaceholder,
     TemplateGallery,
     TemplateTagsDialog,
+    TemplateTestDialog,
     TemplateUsedBy,
   },
 
@@ -202,6 +215,7 @@ export default Vue.extend({
       // Keyed by listmonk template id: { tags, used_by }, from the CRM.
       usage: {},
       tagsItem: null,
+      testItem: null,
     };
   },
 
@@ -230,6 +244,10 @@ export default Vue.extend({
 
     showTagsDialog(t) {
       this.tagsItem = t;
+    },
+
+    showTestDialog(t) {
+      this.testItem = t;
     },
 
     onTagsSaved({ id, tags }) {

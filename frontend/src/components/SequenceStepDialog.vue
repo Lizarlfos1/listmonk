@@ -70,19 +70,33 @@
         </div>
       </section>
 
-      <footer class="modal-card-foot has-text-right">
-        <b-button @click="close">{{ $t('globals.buttons.close') }}</b-button>
-        <b-button v-if="!readonly" type="is-primary" :disabled="!canSave" :loading="saving" @click="save">
-          {{ $t('globals.buttons.save') }}
+      <footer class="modal-card-foot">
+        <!-- A preview is listmonk rendering the HTML. It cannot say how the
+             subject reads in a list of unread mail, or whether the images load
+             from outside the tailnet, which is what a copy in a real inbox is
+             for. Offered on a live sequence too: reading what is going out is
+             not editing it. -->
+        <b-button v-if="templateID" icon-left="email-outline" @click="testItem = { id: templateID, name: templateName }">
+          {{ $t('gallery.testSend') }}
         </b-button>
+
+        <div class="is-flex-grow-1 has-text-right">
+          <b-button @click="close">{{ $t('globals.buttons.close') }}</b-button>
+          <b-button v-if="!readonly" type="is-primary" :disabled="!canSave" :loading="saving" @click="save">
+            {{ $t('globals.buttons.save') }}
+          </b-button>
+        </div>
       </footer>
     </div>
+
+    <template-test-dialog v-if="testItem" :template="testItem" @close="testItem = null" />
   </b-modal>
 </template>
 
 <script>
 import Vue from 'vue';
 import { createSequenceStep, getTemplates, updateSequenceStep } from '../api';
+import TemplateTestDialog from './TemplateTestDialog.vue';
 
 // One step: a day, a subject, the template that renders it, and what that
 // renders as.
@@ -97,6 +111,8 @@ import { createSequenceStep, getTemplates, updateSequenceStep } from '../api';
 // costs nothing.
 export default Vue.extend({
   name: 'SequenceStepDialog',
+
+  components: { TemplateTestDialog },
 
   props: {
     isOpen: { type: Boolean, default: false },
@@ -120,12 +136,20 @@ export default Vue.extend({
       templates: [],
       loadingTemplates: false,
       saving: false,
+      testItem: null,
     };
   },
 
   computed: {
     txTemplates() {
       return this.templates.filter((t) => t.type === 'tx');
+    },
+
+    // For the test dialog's heading. The chosen template may not have loaded
+    // yet on a step opened straight from the table, so the id stands in.
+    templateName() {
+      const tpl = this.templates.find((t) => t.id === this.templateID);
+      return tpl ? tpl.name : `#${this.templateID}`;
     },
 
     // The step's own day is not a clash with itself.
@@ -166,6 +190,7 @@ export default Vue.extend({
         this.templateID = null;
       }
       this.saving = false;
+      this.testItem = null;
       this.loadTemplates();
     },
 

@@ -687,6 +687,19 @@ export const putTemplateTags = (id, tags) => http.put(
   { camelCase: false },
 );
 
+// Send one copy of a transactional template to one inbox, through the same
+// /api/tx path a sequence step uses. Not listmonk's own campaign test send,
+// which renders a broadcast body inside a template and needs a campaign; this
+// is the template on its own, which is all a sequence step ever is.
+//
+// The CRM refuses any address that is not on its TEST_SEND_ALLOWLIST, so the
+// error this can come back with is a normal outcome and worth showing in full.
+export const sendTemplateTest = (id, data) => http.post(
+  `/api/crm/templates/${id}/test`,
+  data,
+  { camelCase: false, disableToast: true },
+);
+
 // Campaigns: the grouping of broadcasts and sequences under one goal. Not to be
 // confused with listmonk's own campaigns, which this admin calls broadcasts and
 // which are reached through getCampaigns/getCampaign above. A listmonk id is

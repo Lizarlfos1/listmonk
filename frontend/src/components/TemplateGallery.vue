@@ -36,6 +36,16 @@
           </a>
         </div>
 
+        <!-- Transactional templates only: a test goes out through /api/tx,
+             which refuses anything else, and a campaign template is tested
+             from the broadcast that uses it, body and template together. -->
+        <div v-if="t.type === 'tx'" class="line actions">
+          <a href="#" class="is-size-7" :data-cy="`btn-test-${t.id}`" @click.prevent="$emit('test', t)">
+            <b-icon icon="email-outline" size="is-small" />
+            {{ $t('gallery.testSend') }}
+          </a>
+        </div>
+
         <template-used-by :used-by="usedByFor(t)" warn />
       </div>
     </div>
