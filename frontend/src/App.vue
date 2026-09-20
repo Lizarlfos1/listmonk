@@ -46,15 +46,11 @@
     </b-navbar>
 
     <div class="wrapper" v-if="$root.isLoaded">
-      <section class="sidebar">
-        <b-sidebar position="static" mobile="hide" :fullheight="true" :open="true" :can-cancel="false">
-          <div>
-            <b-menu :accordion="false">
-              <navigation v-if="!isMobile" :is-mobile="isMobile" :active-item="activeItem" :active-group="activeGroup"
-                @toggleGroup="toggleGroup" />
-            </b-menu>
-          </div>
-        </b-sidebar>
+      <!-- Sim Sense fork: a rail of sections and a panel of the pages in one
+           of them, in place of upstream's single accordion menu. The mobile
+           menu in the navbar is still upstream's. -->
+      <section class="sidebar" v-if="!isMobile">
+        <nav-rail />
       </section>
       <!-- sidebar-->
 
@@ -115,12 +111,14 @@ import { mapState } from 'vuex';
 import { uris } from './constants';
 
 import Navigation from './components/Navigation.vue';
+import NavRail from './components/NavRail.vue';
 
 export default Vue.extend({
   name: 'App',
 
   components: {
     Navigation,
+    NavRail,
   },
 
   data() {

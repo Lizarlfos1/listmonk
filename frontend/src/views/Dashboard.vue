@@ -137,6 +137,11 @@
           </div>
         </div>
       </div><!-- tile block -->
+      <!-- Sim Sense fork: the leaderboards. Everything in it is its own
+           component and its own endpoint, so upstream's dashboard keeps its
+           single-line diff here. -->
+      <dashboard-performance />
+
       <p v-if="settings['app.cache_slow_queries']" class="has-text-grey">
         *{{ $t('globals.messages.slowQueriesCached') }}
         <a href="https://listmonk.app/docs/maintenance/performance/" target="_blank" rel="noopener noreferer"
@@ -154,10 +159,12 @@ import Vue from 'vue';
 import { mapState } from 'vuex';
 import { colors } from '../constants';
 import Chart from '../components/Chart.vue';
+import DashboardPerformance from '../components/DashboardPerformance.vue';
 
 export default Vue.extend({
   components: {
     Chart,
+    DashboardPerformance,
   },
 
   data() {

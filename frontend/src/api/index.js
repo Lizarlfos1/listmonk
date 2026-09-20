@@ -597,3 +597,147 @@ export const getSequencePreview = (id) => http.get(`/api/crm/sequences/${id}/pre
 export const approveSequence = (id, data) => http.post(`/api/crm/sequences/${id}/approve`, data, { camelCase: false });
 
 export const pauseSequence = (id) => http.post(`/api/crm/sequences/${id}/pause`, {});
+
+// Drafting, from the admin rather than through the MCP server. Creating and
+// editing a sequence sends nothing: a sequence is created in 'draft', and the
+// approve gate is unchanged and still the only thing that puts mail in front of
+// anyone.
+export const createSequence = (data) => http.post('/api/crm/sequences', data, { camelCase: false });
+
+export const createSequenceStep = (id, data) => http.post(
+  `/api/crm/sequences/${id}/steps`,
+  data,
+  { camelCase: false },
+);
+
+// Editing a step in place. The step keeps its id, so the sends already made
+// from it still point at it and the history is not rewritten, which a delete
+// and re-add would do by cascading them away.
+export const updateSequenceStep = (stepID, data) => http.patch(
+  `/api/crm/steps/${stepID}`,
+  data,
+  { camelCase: false },
+);
+
+export const deleteSequenceStep = (stepID) => http.delete(
+  `/api/crm/steps/${stepID}`,
+  { camelCase: false },
+);
+
+// Partial update, draft and paused sequences only. The UI uses it for one thing:
+// choosing between one-time and continuous enrolment. That choice is deliberately
+// not in the MCP server's field whitelist, so it is a human's to make here.
+export const updateSequence = (id, data) => http.patch(
+  `/api/crm/sequences/${id}`,
+  data,
+  { camelCase: false },
+);
+
+// Tags and sequence usage for every template, in one call. The templates
+// themselves are not in here: listmonk already holds those in its own store,
+// and a second copy would be a second thing to disagree with the first.
+export const getTemplateUsage = () => http.get('/api/crm/templates/usage', { camelCase: false });
+
+// The funnel: every rung, how many people are on it, and the sequences wired to
+// fire when someone reaches it. One call, because the page is one picture: the
+// counts come from listmonk's attributes and the crossings and triggers from
+// the CRM, and splitting them would mean rendering half a funnel first.
+export const getCrmFunnel = () => http.get('/api/crm/funnel', { camelCase: false });
+
+// --- contacts and outcomes --------------------------------------------------
+//
+// The CRM's view of a person: what we sent them, what they did with it, and
+// where they have got to in the funnel. Listmonk holds the contact; these add
+// the half of the row it knows nothing about.
+export const getCrmContacts = (params) => http.get('/api/crm/contacts', { params, camelCase: false });
+
+export const getCrmContact = (email) => http.get(
+  `/api/crm/contacts/${encodeURIComponent(email)}`,
+  { camelCase: false },
+);
+
+// A POST because the addresses go in a body, not because anything is written.
+// Used by the subscribers screen, which already has its rows from Listmonk and
+// needs only the engagement columns for the page it is showing.
+export const getCrmEngagement = (emails) => http.post(
+  '/api/crm/contacts/engagement',
+  { emails },
+  { camelCase: false },
+);
+
+// Funnel movement observed after a send. Never a causal claim: see the
+// measurement block these endpoints return, which every screen showing them
+// must surface rather than quietly drop.
+export const getSequenceOutcomes = (id, params) => http.get(
+  `/api/crm/sequences/${id}/outcomes`,
+  { params, camelCase: false },
+);
+
+export const getCrmCampaignOutcomes = (id, params) => http.get(
+  `/api/crm/campaigns/${id}/outcomes`,
+  { params, camelCase: false },
+);
+
+export const getFunnelOutcomes = (params) => http.get('/api/crm/outcomes/funnel', { params, camelCase: false });
+
+// A whole-set replace, because the tag editor holds the complete list.
+export const putTemplateTags = (id, tags) => http.put(
+  `/api/crm/templates/${id}/tags`,
+  { tags },
+  { camelCase: false },
+);
+
+// Campaigns: the grouping of broadcasts and sequences under one goal. Not to be
+// confused with listmonk's own campaigns, which this admin calls broadcasts and
+// which are reached through getCampaigns/getCampaign above. A listmonk id is
+// always listmonk_campaign_id here, never a bare campaign_id.
+export const getCrmCampaigns = () => http.get('/api/crm/campaigns', { camelCase: false });
+
+export const getCrmCampaign = (id) => http.get(`/api/crm/campaigns/${id}`, { camelCase: false });
+
+export const createCrmCampaign = (data) => http.post(
+  '/api/crm/campaigns',
+  data,
+  { camelCase: false },
+);
+
+// An explicit null in data clears goal, starts_on or ends_on. Leaving a key out
+// leaves that field alone, which is why the views send null rather than ''.
+export const updateCrmCampaign = (id, data) => http.patch(
+  `/api/crm/campaigns/${id}`,
+  data,
+  { camelCase: false },
+);
+
+export const deleteCrmCampaign = (id) => http.delete(`/api/crm/campaigns/${id}`, { camelCase: false });
+
+// The member calls answer with 400, 404, 409 and 502 for distinguishable
+// reasons, and the CRM puts its sentence in .error where the global interceptor
+// looks for .message. The generic toast would say only "status code 409", so it
+// is suppressed and the caller shows what the API actually said.
+export const addCrmCampaignMember = (id, data) => http.post(
+  `/api/crm/campaigns/${id}/members`,
+  data,
+  { camelCase: false, disableToast: true },
+);
+
+export const deleteCrmCampaignMember = (id, memberId) => http.delete(
+  `/api/crm/campaigns/${id}/members/${memberId}`,
+  { camelCase: false, disableToast: true },
+);
+
+// Two sets of numbers from two systems, deliberately not summed: broadcast
+// figures are listmonk's own analytics, sequence figures are SES delivery
+// events, and only totals.sent spans both.
+export const getCrmCampaignStats = (id) => http.get(`/api/crm/campaigns/${id}/stats`, { camelCase: false });
+
+// The dashboard leaderboards: the top sequences, broadcasts and campaigns of a
+// period, with last-touch revenue beside them. Three arrays rather than one,
+// because a sequence's counts are SES events and a broadcast's are listmonk's
+// own analytics, and the two are never added or compared. The dollar figures
+// are the only column that spans all three, because they come from Stripe
+// rather than from either sender.
+export const getCrmDashboardTop = (params) => http.get(
+  '/api/crm/dashboard/top',
+  { params, camelCase: false },
+);

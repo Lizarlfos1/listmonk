@@ -1,9 +1,18 @@
 <template>
   <section class="sequences content relative">
-    <h1 class="title is-4">
-      {{ $t('sequences.title') }}
-      <span v-if="sequences.length">({{ sequences.length }})</span>
-    </h1>
+    <header class="columns page-header">
+      <div class="column is-9">
+        <h1 class="title is-4">
+          {{ $t('sequences.title') }}
+          <span v-if="sequences.length">({{ sequences.length }})</span>
+        </h1>
+      </div>
+      <div class="column has-text-right">
+        <b-button type="is-primary" icon-left="plus" class="btn-new" data-cy="btn-new" @click="newSequence">
+          {{ $t('sequences.new') }}
+        </b-button>
+      </div>
+    </header>
 
     <b-field grouped>
       <b-select v-model="statusFilter" :placeholder="$t('sequences.filterStatus')">
@@ -24,8 +33,19 @@
         </p>
       </b-table-column>
 
-      <b-table-column v-slot="props" field="status" :label="$t('globals.fields.status')" width="8%">
+      <b-table-column v-slot="props" field="status" :label="$t('globals.fields.status')" width="10%">
         <b-tag :class="props.row.status">{{ props.row.status }}</b-tag>
+        <!-- A continuous sequence is still acquiring people, which the status
+             tag alone does not say: active means the same word for both. The
+             marker is an icon so the row keeps its shape, and the tooltip
+             carries the sentence that explains it. -->
+        <b-tooltip :label="modeLabel(props.row)" multilined position="is-right">
+          <b-tag class="ml-1"
+                 :type="props.row.enrollment_mode === 'continuous' ? 'is-info' : 'is-light'">
+            <b-icon :icon="props.row.enrollment_mode === 'continuous' ? 'refresh' : 'clock-start'"
+                    size="is-small" />
+          </b-tag>
+        </b-tooltip>
       </b-table-column>
 
       <b-table-column v-slot="props" field="step_count" :label="$t('sequences.steps')" numeric width="7%">
@@ -41,7 +61,7 @@
         {{ props.row.sent_count }}
       </b-table-column>
       <b-table-column v-slot="props" field="created_at" :label="$t('globals.fields.createdAt')" width="14%">
-        {{ $utils.niceDate(props.row.created_at) }}
+        {{ $utils.shortDate(props.row.created_at) }}
       </b-table-column>
 
       <template #empty>
@@ -54,7 +74,7 @@
 <script>
 import Vue from 'vue';
 import EmptyPlaceholder from '../components/EmptyPlaceholder.vue';
-import { getSequences } from '../api';
+import { createSequence, getSequences } from '../api';
 
 export default Vue.extend({
   name: 'Sequences',
@@ -74,6 +94,33 @@ export default Vue.extend({
   },
 
   methods: {
+    // Name it here, decide everything else on its own page. A sequence is
+    // created as a draft that sends nothing, so the only thing that has to be
+    // true at this point is that it has a name to find it by.
+    newSequence() {
+      const onName = async (name) => {
+        if (!name || !name.trim()) { return; }
+        try {
+          const created = await createSequence({ name: name.trim() });
+          this.$router.push({ name: 'sequence', params: { id: created.id } });
+        } catch (e) {
+          this.$utils.toast((e.response && e.response.data && e.response.data.error) || e.message, 'is-danger');
+        }
+      };
+
+      this.$utils.prompt(
+        this.$t('sequences.newPrompt'),
+        { placeholder: this.$t('sequences.newPlaceholder') },
+        onName,
+      );
+    },
+
+    modeLabel(row) {
+      return row.enrollment_mode === 'continuous'
+        ? this.$t('sequences.enrollmentModeContinuous')
+        : this.$t('sequences.enrollmentModeSnapshot');
+    },
+
     async load() {
       this.loading = true;
       try {

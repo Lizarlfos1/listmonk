@@ -70,6 +70,26 @@ export default class Utils {
     return out;
   };
 
+  // Sim Sense fork: the same date without the weekday.
+  //
+  // niceDate is right for a detail page, where "Sat, 19 Sep 2026" reads well.
+  // In a table column it wraps onto two lines and the weekday is the part
+  // nobody came for, so a narrow column gets this instead.
+  shortDate = (stamp, showTime) => {
+    if (!stamp) {
+      return '';
+    }
+
+    const d = dayjs(stamp);
+    const month = this.i18n.t(`globals.months.${d.month() + 1}`);
+    let out = d.format(`DD [${month}] YYYY`);
+    if (showTime) {
+      out += d.format(', HH:mm');
+    }
+
+    return out;
+  };
+
   duration = (start, end) => {
     const a = dayjs(start);
     const b = dayjs(end);

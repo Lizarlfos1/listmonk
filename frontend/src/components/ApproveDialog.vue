@@ -16,32 +16,81 @@
         <div v-else-if="preview">
           <!-- The headline number. Everything else here exists so you can decide
                whether this one is right. -->
+          <!-- A triggered sequence enrols nobody at approval, so the headline
+               cannot be "who is about to be mailed" without being a lie. The
+               honest figure is how fast people have been reaching the stage,
+               which is the rate this will start mailing at. -->
           <div class="box headline has-text-centered">
-            <p class="is-size-1 has-text-weight-bold">{{ preview.would_enrol }}</p>
-            <p class="has-text-grey">
-              {{ preview.would_enrol === 1 ? $t('sequences.personEnrolled') : $t('sequences.peopleEnrolled') }}
-              <strong>{{ sequence.name }}</strong>
-            </p>
+            <template v-if="preview.triggered">
+              <p class="is-size-1 has-text-weight-bold">{{ preview.arrivals_30d }}</p>
+              <p class="has-text-grey">
+                {{ $t('sequences.triggeredArrivals', { stage: preview.trigger_stage_label }) }}
+                <span class="is-block is-size-7">
+                  {{ $t('sequences.triggeredArrivals7', { n: preview.arrivals_7d }) }}
+                </span>
+              </p>
+            </template>
+            <template v-else>
+              <p class="is-size-1 has-text-weight-bold">{{ preview.would_enrol }}</p>
+              <p class="has-text-grey">
+                {{ preview.would_enrol === 1 ? $t('sequences.personEnrolled') : $t('sequences.peopleEnrolled') }}
+                <strong>{{ sequence.name }}</strong>
+              </p>
+            </template>
           </div>
 
-          <b-message type="is-warning" :closable="false" size="is-small">
+          <b-message v-if="!preview.triggered" type="is-warning" :closable="false" size="is-small">
             {{ $t('sequences.approveWarning', { day: preview.first_day }) }}
+          </b-message>
+
+          <!-- The two things about a trigger that are not true of the other
+               modes: it starts empty, and a pause loses the people who arrive
+               during it. Both are surprises if the first time you meet them is
+               after approving. -->
+          <b-message v-if="preview.triggered" type="is-info" :closable="false" size="is-small">
+            {{ $t('sequences.triggeredPreviewNote', { stage: preview.trigger_stage_label }) }}
+            <span class="is-block">{{ $t('sequences.triggeredPauseNote') }}</span>
+            <span v-if="preview.trigger_enrol_limit_per_tick" class="is-block">
+              {{ $t('sequences.triggeredCap', { n: preview.trigger_enrol_limit_per_tick }) }}
+            </span>
+          </b-message>
+
+          <!-- Under continuous enrolment the headline number above is a reading,
+               not a total: approve enrols this snapshot and the scheduler keeps
+               enrolling whoever matches later. The cap is here because it is the
+               bound on how wrong a wrong segment can get before anyone notices. -->
+          <b-message v-if="preview.continuous" type="is-info" :closable="false" size="is-small">
+            {{ $t('sequences.continuousPreviewNote') }}
+            <span v-if="preview.continuous_enrol_limit_per_tick !== null" class="is-block">
+              {{ $t('sequences.continuousCap', { n: preview.continuous_enrol_limit_per_tick }) }}
+            </span>
           </b-message>
 
           <b-message v-if="preview.blockers.length" type="is-danger" :closable="false" size="is-small">
             {{ $t('sequences.cannotApprove') }}: {{ preview.blockers.join('; ') }}
           </b-message>
-          <b-message v-else-if="preview.would_enrol === 0" type="is-warning" :closable="false" size="is-small">
-            {{ $t('sequences.matchesNobody') }}
+          <!-- An empty segment blocks a one-time approval, because approving one
+               would activate a sequence that can never enrol anyone: its only
+               chance to do so is the snapshot being taken right now. A
+               continuous sequence is the opposite case. Waiting for its first
+               match is the normal state of a trigger, so this is a note. -->
+          <b-message v-else-if="preview.would_enrol === 0 && !preview.triggered"
+            :type="preview.continuous ? 'is-info' : 'is-warning'"
+            :closable="false" size="is-small">
+            {{ preview.continuous ? $t('sequences.continuousMatchesNobody') : $t('sequences.matchesNobody') }}
           </b-message>
 
-          <h3 class="is-size-7 has-text-grey is-uppercase">{{ $t('sequences.segment') }}</h3>
-          <pre class="segment">{{ preview.segment_query }}</pre>
+          <h3 class="is-size-7 has-text-grey is-uppercase">
+            {{ preview.triggered ? $t('sequences.triggerStage') : $t('sequences.segment') }}
+          </h3>
+          <pre class="segment">{{ preview.triggered ? preview.trigger_stage_label : preview.segment_query }}</pre>
 
           <div class="columns is-mobile has-text-centered mt-2">
-            <div class="column"><p class="is-size-5">{{ preview.matched }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.matched') }}</p></div>
-            <div class="column"><p class="is-size-5">{{ preview.blocklisted }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.blocklisted') }}</p></div>
-            <div class="column"><p class="is-size-5">{{ preview.already_enrolled }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.alreadyEnrolled') }}</p></div>
+            <template v-if="!preview.triggered">
+              <div class="column"><p class="is-size-5">{{ preview.matched }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.matched') }}</p></div>
+              <div class="column"><p class="is-size-5">{{ preview.blocklisted }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.blocklisted') }}</p></div>
+              <div class="column"><p class="is-size-5">{{ preview.already_enrolled }}</p><p class="is-size-7 has-text-grey">{{ $t('sequences.alreadyEnrolled') }}</p></div>
+            </template>
             <div class="column">
               <p class="is-size-5">{{ preview.step_count }}</p>
               <p class="is-size-7 has-text-grey">
@@ -112,7 +161,10 @@ export default Vue.extend({
     canApprove() {
       return !!this.preview
         && this.preview.blockers.length === 0
-        && this.preview.would_enrol > 0
+        // Zero matches is fatal for a one-time sequence and ordinary for a
+        // continuous one, which exists precisely to enrol people who do not
+        // match yet. The API's own blockers still apply to both.
+        && (this.preview.would_enrol > 0 || this.preview.continuous || this.preview.triggered)
         && this.approvedBy.trim().length > 0
         && !this.submitting;
     },
@@ -148,7 +200,14 @@ export default Vue.extend({
         try { localStorage.setItem(APPROVER_KEY, this.approvedBy.trim()); } catch (e) { /* not worth surfacing */ }
         // Report what approve actually enrolled, not what the preview predicted:
         // a live segment can move between the two calls.
-        this.$utils.toast(this.$t('sequences.approvedToast', { n: data.enrolled, name: this.sequence.name }));
+        // A trigger reports zero enrolled, which is correct and reads like a
+        // failure unless the toast says what it is waiting for.
+        this.$utils.toast(data.triggered
+          ? this.$t('sequences.approvedTriggeredToast', {
+            name: this.sequence.name,
+            stage: (this.preview && this.preview.trigger_stage_label) || data.trigger_stage,
+          })
+          : this.$t('sequences.approvedToast', { n: data.enrolled, name: this.sequence.name }));
         this.$emit('approved', data);
         this.close();
       } catch (e) {

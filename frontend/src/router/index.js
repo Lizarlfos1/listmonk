@@ -24,10 +24,42 @@ const routes = [
     component: () => import('../views/Sequences.vue'),
   },
   {
+    // Before the :id route below, which would otherwise swallow it: vue-router
+    // matches in declaration order and 'funnel' is a perfectly good uuid as far
+    // as a path parameter is concerned.
+    path: '/sequences/funnel',
+    name: 'funnel',
+    meta: { title: 'funnel.title', group: 'sequences' },
+    component: () => import('../views/Funnel.vue'),
+  },
+  {
     path: '/sequences/:id',
     name: 'sequence',
     meta: { title: 'sequences.title', group: 'sequences' },
     component: () => import('../views/Sequence.vue'),
+  },
+  {
+    path: '/crm/campaigns',
+    name: 'crmCampaigns',
+    meta: { title: 'crmCampaigns.title', group: 'crm-campaigns' },
+    component: () => import('../views/CrmCampaigns.vue'),
+  },
+  {
+    // A uuid, or the literal 'new' for the create screen, the same way the
+    // broadcast route does it.
+    path: '/crm/campaigns/:id',
+    name: 'crmCampaign',
+    meta: { title: 'crmCampaigns.title', group: 'crm-campaigns' },
+    component: () => import('../views/CrmCampaign.vue'),
+  },
+  {
+    // The param is a raw email address. vue-router encodes it on the way in and
+    // decodes it on the way out, and a literal '+' in a path segment is not a
+    // space, so an address carrying one round trips without special handling.
+    path: '/crm/contacts/:email',
+    name: 'crmContact',
+    meta: { title: 'contacts.timeline', group: 'contacts' },
+    component: () => import('../views/CrmContact.vue'),
   },
   {
     path: '/lists',
@@ -128,19 +160,19 @@ const routes = [
   {
     path: '/users',
     name: 'users',
-    meta: { title: 'globals.terms.users', group: 'users' },
+    meta: { title: 'globals.terms.users', group: 'settings' },
     component: () => import('../views/Users.vue'),
   },
   {
     path: '/users/roles/users',
     name: 'userRoles',
-    meta: { title: 'users.userRoles', group: 'users' },
+    meta: { title: 'users.userRoles', group: 'settings' },
     component: () => import('../views/Roles.vue'),
   },
   {
     path: '/users/roles/lists',
     name: 'listRoles',
-    meta: { title: 'users.listRoles', group: 'users' },
+    meta: { title: 'users.listRoles', group: 'settings' },
     component: () => import('../views/Roles.vue'),
   },
   {

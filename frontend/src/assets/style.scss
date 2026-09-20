@@ -85,8 +85,15 @@ ul.no {
 }
 
 section {
+  /* Sim Sense fork: upstream caps page content at 1100px, which was sized for a
+     laptop and leaves most of a desktop monitor as empty gutter. The rail is
+     only 84px wide, so there is plenty of room to use. Tables, the template
+     gallery and the campaign stats tables all read better wide.
+
+     section-mini is left alone: it is only the user profile form, and a single
+     column of inputs stretched across a monitor is worse, not better. */
   &.wrap {
-    max-width: 1100px;
+    max-width: none;
   }
 
   &.section-mini {
@@ -192,6 +199,12 @@ section {
   }
 }
 
+/* Sim Sense fork: date cells read as one token, so they should not wrap.
+   Paired with $utils.shortDate, which drops the weekday. */
+.main table td.date-cell {
+  white-space: nowrap;
+}
+
 .spaced-links a {
   margin-right: 15px;
   display: inline-block;
@@ -208,14 +221,18 @@ section {
   }
 
   .sidebar {
-    flex-shrink: 1;
-    box-shadow: 0 0 3px $grey-lighter;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 20;
     background: $white;
   }
 
   .main {
     background: $white;
-    margin-left: 15px;
+    /* No gap: upstream's margin separated two white columns, but the rail
+       ends in a border of its own, so a margin here only shows a strip of
+       page background between the two. */
+    margin-left: 0;
     padding: 30px;
     flex-grow: 1;
     position: relative;
@@ -240,6 +257,150 @@ section {
   }
 }
 
+/* Sim Sense fork: the two-column navigation. A rail of sections, and a panel
+   of the pages in the one under the pointer. Only the rail takes up space: the
+   panel is laid over the page, so the page does not shuffle sideways every
+   time the pointer crosses the nav. */
+.nav-rail-wrap {
+  /* top and height are set from the measured navbar height in NavRail.vue:
+     the nav sits directly under a navbar whose height is not a constant. */
+  position: sticky;
+}
+
+.nav-rail {
+  width: 84px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 10px 0;
+  border-right: 1px solid $grey-lighter;
+  background: $white-bis;
+
+  .rail-item {
+    display: block;
+    width: 100%;
+    padding: 12px 4px 10px;
+    border: 0 none;
+    border-left: 3px solid transparent;
+    background: none;
+    color: $grey-dark;
+    font-family: $body-family;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+
+    .icon {
+      display: block;
+      margin: 0 auto 4px;
+      font-size: 1.25rem;
+    }
+
+    span {
+      display: block;
+      /* The rail is 84px and some section names are not: better one clipped
+         name than a rail whose rows are different heights. */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &:hover {
+      background: $white-ter;
+      color: $black-ter;
+    }
+
+    /* The section the panel is showing, when that is not the section you are
+       in: without it the rail and the panel disagree about where you are. */
+    &.is-shown {
+      background: $white-ter;
+      color: $black-ter;
+    }
+
+    &.is-active {
+      border-left-color: $primary;
+      background: rgba($primary, 0.07);
+      color: $primary;
+      font-weight: 600;
+    }
+  }
+}
+
+.nav-panel {
+  position: absolute;
+  top: 0;
+  left: 84px;
+  width: $sidebar-width;
+  height: 100%;
+  overflow-y: auto;
+  padding: 22px 18px 30px;
+  border-right: 1px solid $grey-lighter;
+  background: $white;
+  box-shadow: 3px 0 6px rgba($black, 0.06);
+
+  .panel-head {
+    padding-bottom: 14px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid $grey-lighter;
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+
+    .icon {
+      margin-right: 8px;
+      color: $primary;
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+  }
+
+  .panel-description {
+    margin-top: 6px;
+    color: $grey;
+    font-size: 0.8rem;
+    font-style: italic;
+    line-height: 1.35;
+  }
+
+  .panel-group {
+    margin-top: 18px;
+
+    h3 {
+      margin-bottom: 4px;
+      padding: 0 10px;
+      color: $grey;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    a {
+      display: block;
+      padding: 7px 10px;
+      border-radius: 3px;
+      color: $black-ter;
+
+      &:hover {
+        background: $white-ter;
+      }
+
+      &.is-active {
+        background: rgba($primary, 0.07);
+        color: $primary;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
 .b-sidebar {
   position: sticky;
   top: 75px;
@@ -247,6 +408,7 @@ section {
   .sidebar-content {
     background: transparent;
   }
+
   .menu-list {
     .router-link-exact-active {
       border-right: 5px solid $primary;
@@ -1103,7 +1265,8 @@ section.analytics {
 /* Settings */
 .settings {
   .settings-wrap {
-    max-width: 1240px;
+    /* Same reasoning as section.wrap above: full width, not a fixed cap. */
+    max-width: none;
   }
 
   .settings-tabs {
@@ -1296,12 +1459,16 @@ th.role-toggle-select a {
 }
 
 @media screen and (max-width: 1100px) {
+  .nav-panel {
+    width: 200px;
+    padding: 18px 12px 24px;
+  }
+
   html, body {
     overflow-x: auto;
   }
 
   #app .main {
-    margin-left: 5px;
     padding: 30px 20px 30px 20px;
   }
 
@@ -1423,6 +1590,22 @@ th.role-toggle-select a {
 
 /* Sim Sense fork: sequences. */
 .sequences, .sequence {
+  /* The subject is a link to the step, not decoration: it is how the email is
+     opened. */
+  .step-subject {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* The steps heading carries the add button, so it is a row rather than a
+     line of text. */
+  .steps-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
   .segment {
     background: #f9f9f9;
     border: 1px solid $border;
@@ -1459,4 +1642,563 @@ th.role-toggle-select a {
   .tag.active { background: #e8f5e9; color: #256029; }
   .tag.draft { background: #e3f2fd; color: #0d47a1; }
   .tag.paused { background: #fff4e5; color: #8a5300; }
+}
+
+/* Sim Sense fork: the template gallery. */
+.templates {
+  .gallery-toolbar {
+    margin-bottom: 15px;
+
+    .count {
+      opacity: 0.55;
+      margin-left: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .view-switch {
+      justify-content: flex-end;
+    }
+  }
+
+  /* Tag chips double as filter buttons, in the cards and in the table. */
+  .tpl-tag {
+    margin: 0 3px 3px 0;
+    background: #eef2f7;
+    color: #37474f;
+    &:hover { background: $primary; color: #fff; }
+
+    &.is-add {
+      background: none;
+      border: 1px dashed $border;
+      color: $grey;
+      &:hover { border-color: $primary; color: $primary; }
+    }
+  }
+}
+
+.template-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+
+  .tpl-card {
+    border: 1px solid $border;
+    border-radius: 3px;
+    background: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    /* Referenced by an active sequence. Marked on the card itself, not only in
+       the "used by" line, so it reads at a glance while scanning. */
+    &.is-live {
+      border-color: #c98a00;
+      box-shadow: inset 0 3px 0 #f0a500;
+    }
+  }
+
+  /* The thumbnail. The iframe is laid out at three times the card and scaled
+     back down, which renders the email at a desktop-ish width instead of
+     squeezing it into 260px and triggering every mobile media query. Three
+     rather than four because at a quarter scale body copy stops being legible
+     as text and starts being grey texture. Pure CSS on purpose: percentages
+     track the card as the grid reflows, so nothing has to measure anything. */
+  .thumb {
+    display: block;
+    position: relative;
+    height: 190px;
+    overflow: hidden;
+    background: #fff;
+    border-bottom: 1px solid $border;
+
+    iframe {
+      width: 300%;
+      height: 300%;
+      border: 0;
+      transform: scale(0.3333);
+      transform-origin: top left;
+      /* The card is a link to the full preview; the iframe must not eat the
+         click, and the email's own links must not be followable at 25%. */
+      pointer-events: none;
+    }
+
+    .thumb-pending {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(-45deg, #fafafa, #fafafa 8px, #f2f2f2 8px, #f2f2f2 16px);
+    }
+
+    &:hover::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba($primary, 0.07);
+    }
+  }
+
+  .meta {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      &.tags { gap: 0; }
+    }
+
+    .name {
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .subject {
+      font-size: 0.8rem;
+      color: $grey;
+      margin: 0;
+      /* Two lines, so a long subject cannot make one card taller than its row. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .id {
+      font-size: 0.75rem;
+      color: $grey-light;
+      margin-left: auto;
+    }
+  }
+}
+
+.template-used-by {
+  font-size: 0.78rem;
+
+  .none { color: $grey-light; }
+
+  .use {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 4px 3px 0;
+    padding: 1px 7px;
+    border-radius: 3px;
+    background: #eef2f7;
+    color: #37474f;
+
+    /* Active is the one that matters, so it is the only one that gets colour. */
+    &.active {
+      background: #fff4e5;
+      color: #8a5300;
+      font-weight: 600;
+    }
+
+    .days { opacity: 0.65; }
+    .icon { margin: 0; }
+  }
+
+  .live-warning {
+    margin: 4px 0 0;
+    color: #8a5300;
+    line-height: 1.35;
+    .icon { vertical-align: -3px; }
+  }
+}
+
+/* Sim Sense fork: the funnel, and the rules that fire along it.
+   Master and detail: the journey as a list on the left, one rung's rules on
+   the right. The rules are a grid rather than a table because the middle
+   column is an arrow and the last two are numbers, and a table would give all
+   five the same weight. */
+.funnel {
+  /* Full bleed, like every other admin screen: no card around the page. The
+     only rule left is the one between the journey and the rung, which is
+     structural rather than decorative. */
+  .funnel-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 190px);
+  }
+
+  .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $grey;
+    margin: 0;
+  }
+
+  /* --- the journey ------------------------------------------------------- */
+
+  .stage-list {
+    border-right: 1px solid $border;
+    display: flex;
+    flex-direction: column;
+
+    .list-head {
+      padding: 0 20px 14px 0;
+
+      .title { margin-bottom: 2px; }
+      p { margin: 0; }
+    }
+
+    ul { list-style: none; margin: 0; padding: 6px 0; }
+    li { margin: 0; }
+
+    a {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 10px 20px 10px 0;
+      color: inherit;
+      border-left: 3px solid transparent;
+
+      &:hover { background: #f7f9fb; }
+    }
+
+    /* The rung being read. A left edge rather than a filled row: the row is
+       already a link and a solid block would compete with the detail pane. */
+    li.is-selected a {
+      background: #f4f8ff;
+      border-left-color: $primary;
+      padding-left: 9px;
+      margin-left: -12px;
+      padding-right: 20px;
+    }
+
+    .num {
+      color: $grey;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      min-width: 12px;
+    }
+
+    .detail {
+      flex: 1;
+      display: block;
+
+      .name { display: block; font-weight: 600; }
+    }
+
+    /* How many rules sit on this rung, which is the thing the list is scanned
+       for: where the gaps are. */
+    .badge {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background: #e8f0fe;
+      color: #1a4b8f;
+      font-size: 0.7rem;
+    }
+
+    .reached {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+
+      &.is-empty { font-weight: 400; color: $grey; }
+
+      .unit { font-weight: 400; font-size: 0.7rem; color: $grey; margin-left: 4px; }
+    }
+
+    .list-foot {
+      margin-top: auto;
+      padding: 14px 20px 0 0;
+
+      .footnote { border-bottom: 1px dotted $border; cursor: help; }
+    }
+  }
+
+  /* --- one rung ---------------------------------------------------------- */
+
+  .stage-detail { padding: 0 0 26px 28px; }
+
+  .detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+
+    .title { margin: 2px 0 0; }
+    .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid $border;
+    border-radius: 3px;
+    margin: 18px 0 22px;
+
+    .stat {
+      padding: 14px 18px;
+
+      &:not(:last-child) { border-right: 1px solid $border; }
+
+      .figure {
+        font-size: 1.6rem;
+        font-weight: 600;
+        line-height: 1.1;
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .label { margin: 2px 0 0; font-size: 0.72rem; color: $grey; }
+    }
+  }
+
+  .rules-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 10px;
+
+    /* A rule between the two labels, so the caption on the right reads as a
+       note about the list rather than as another heading. */
+    &::after {
+      content: "";
+      flex: 1;
+      order: 1;
+      height: 1px;
+      background: $border;
+    }
+
+    .rule-order { order: 2; }
+  }
+
+  .rule {
+    display: grid;
+    grid-template-columns: 1fr 40px 1.4fr auto auto;
+    align-items: center;
+    gap: 0 14px;
+    border: 1px solid $border;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    background: #fff;
+
+    /* Approved and enrolling. The same marker the template gallery uses for a
+       template an active sequence sends: this is going out right now. */
+    &.is-live {
+      background: #f8fbff;
+      border-color: #c9ddf7;
+    }
+
+    p { margin: 0; }
+
+    .rule-when {
+      padding: 14px 16px;
+      border-right: 1px solid $border;
+      align-self: stretch;
+
+      .condition { font-weight: 600; margin-top: 4px; }
+    }
+
+    .rule-arrow { color: $grey; text-align: center; }
+
+    .rule-sequence {
+      padding: 14px 0;
+
+      a { font-weight: 600; }
+    }
+
+    .rule-stats {
+      display: flex;
+      gap: 18px;
+      padding: 14px 0;
+
+      span { text-align: center; }
+      b { display: block; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+      em { font-style: normal; font-size: 0.7rem; color: $grey; }
+    }
+
+    .rule-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 16px;
+
+      .locked { color: $grey; }
+
+      /* Red, because it is the one control here that takes something away,
+         even though what it takes away is the rule rather than the sequence. */
+      .detach.button {
+        color: $red;
+
+        &:hover { background: #fdecea; }
+      }
+    }
+  }
+
+  /* The same quiet affordance the rail used: adding a rule is ordinary, and a
+     second filled button under the one in the header would read as two
+     different actions. */
+  .add-rule {
+    width: 100%;
+    border: 1px dashed $border;
+    border-radius: 3px;
+    background: none;
+    color: $primary;
+    padding: 10px;
+    cursor: pointer;
+
+    &:hover { border-color: $primary; background: #f7faff; }
+  }
+
+  .tag.active { background: #e8f5e9; color: #256029; }
+  .tag.draft { background: #eef1f5; color: #4a5568; }
+  .tag.paused { background: #fff4e5; color: #8a5300; }
+
+  @media screen and (max-width: 1000px) {
+    .funnel-layout { grid-template-columns: 1fr; }
+    .stage-list { border-right: 0; border-bottom: 1px solid $border; }
+    .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    .rule {
+      grid-template-columns: 1fr;
+      .rule-when { border-right: 0; border-bottom: 1px solid $border; }
+      .rule-arrow { display: none; }
+      .rule-sequence, .rule-stats, .rule-status { padding-left: 16px; padding-right: 16px; }
+    }
+  }
+}
+
+/* The dialog that writes one rule. */
+.funnel-trigger-dialog {
+  .fixed-sequence { font-weight: 600; margin: 0; }
+
+  .segment-input textarea {
+    font-family: monospace;
+    /* ->> is the JSON operator in a listmonk segment, not decoration. */
+    font-variant-ligatures: none;
+    font-size: 0.85em;
+  }
+}
+
+/* The step dialog: fields on the left, the rendered email on the right. */
+.step-dialog {
+  .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $grey;
+    margin: 0 0 6px;
+  }
+
+  /* A fixed height with the iframe scrolling inside it: an email is as long as
+     it is, and letting it set the dialog's height would make the fields jump
+     every time the template changes. */
+  .preview-frame {
+    border: 1px solid $border;
+    border-radius: 3px;
+    background: #fff;
+    height: 420px;
+    overflow: hidden;
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+  }
+}
+
+/* Sim Sense fork: the dashboard leaderboards.
+   Three panels stacked rather than sat side by side, because each one is a
+   table of six or seven columns and two of those next to each other on a
+   laptop would wrap every row. Stacking also keeps the reading order honest:
+   sequences and broadcasts are counted by different systems, and reading them
+   one under the other invites fewer comparisons than reading them side by
+   side does. */
+.dashboard-performance {
+  margin-top: 40px;
+
+  > header {
+    margin-bottom: 4px;
+  }
+
+  .coverage {
+    margin-bottom: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    /* Three separate sentences, spaced rather than punctuated together: each
+       is a different caveat and running them into one paragraph is how a
+       caveat stops being read. Separated by a rule rather than by whitespace
+       alone, because three grey fragments on one line with a gap between them
+       read as one broken sentence. */
+    span + span {
+      margin-left: 14px;
+      padding-left: 14px;
+      border-left: 1px solid $grey-lighter;
+    }
+  }
+
+  /* A stack with one gap, so the distance between two panels is stated in one
+     place instead of falling out of a grid's gutters plus a box's padding plus
+     a table's own bottom margin, which is how they ended up a screen apart. */
+  .panels {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .perf-panel {
+    @extend .box;
+    padding: 14px 16px 4px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+
+    .title { margin-bottom: 0; }
+  }
+
+  /* Buefy hangs a 1.5rem margin off the table wrapper for the pagination
+     these tables do not have, which left a band of empty panel under every
+     last row. */
+  .b-table .table-wrapper:not(:last-child) {
+    margin-bottom: 0;
+  }
+
+  .b-table .table {
+    th, td {
+      padding: 7px 10px;
+      vertical-align: middle;
+    }
+
+    th {
+      font-size: 0.85rem;
+      color: $grey;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* The subject under a broadcast's name and the goal under a campaign's
+       are second lines of one cell, not paragraphs. */
+    td p {
+      margin: 0;
+      line-height: 1.3;
+    }
+  }
+
+  /* The money column carries the weight of the panel, so it is the one thing
+     set in a tabular figure: a column of prices that does not line up on the
+     decimal point is read one row at a time instead of at a glance. */
+  .revenue {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .basis {
+    margin-top: 12px;
+    max-width: 90ch;
+  }
 }

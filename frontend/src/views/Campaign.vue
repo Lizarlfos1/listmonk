@@ -185,6 +185,11 @@
         <editor v-if="data.id" v-model="form.content" :id="data.id" :title="data.name" :disabled="!canEdit"
           :templates="templates" :content-types="contentTypes" />
 
+        <!-- Sim Sense fork: a broadcast whose product links carry no tracking
+             tag cannot have any revenue credited to it, and nothing else in
+             this screen would ever say so. -->
+        <broadcast-tag-notice :body="form.content.body" />
+
         <div class="columns">
           <div class="column is-6">
             <p v-if="!isAttachFieldVisible" class="is-size-6 has-text-grey">
@@ -329,6 +334,7 @@ import { mapState } from 'vuex';
 import CampaignPreview from '../components/CampaignPreview.vue';
 import CopyText from '../components/CopyText.vue';
 import Editor from '../components/Editor.vue';
+import BroadcastTagNotice from '../components/BroadcastTagNotice.vue';
 import ListSelector from '../components/ListSelector.vue';
 import Media from './Media.vue';
 
@@ -336,6 +342,7 @@ export default Vue.extend({
   components: {
     ListSelector,
     Editor,
+    BroadcastTagNotice,
     Media,
     CopyText,
     CampaignPreview,

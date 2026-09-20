@@ -68,8 +68,22 @@
             </a>
           </div>
         </div><!-- search -->
+
+        <div class="column is-4">
+          <b-field :label="$t('funnel.stage')" label-position="on-border">
+            <b-select v-model="stageFilter" @input="onStageFilter" expanded data-cy="stage-filter">
+              <option value="">{{ $t('funnel.allStages') }}</option>
+              <option v-for="s in funnelStages" :key="s.id" :value="s.id">{{ $t(s.i18n) }}</option>
+            </b-select>
+          </b-field>
+          <p class="is-size-7 has-text-grey">{{ $t('funnel.derivedHelp') }}</p>
+        </div><!-- funnel stage filter -->
       </div>
     </section><!-- control -->
+
+    <p v-if="crmFailedAt > 0" class="is-size-7 has-text-grey" data-cy="crm-unavailable">
+      {{ $t('contacts.crmUnavailable') }}
+    </p>
 
     <br />
     <b-table :data="subscribers.results ?? []" :loading="loading.subscribers" @check-all="onTableCheck"
@@ -129,30 +143,53 @@
         </b-taglist>
       </b-table-column>
 
-      <b-table-column v-slot="props" field="name" :label="$t('globals.fields.name')" header-class="cy-name" sortable>
-        <a :href="`/subscribers/${props.row.id}`" @click.prevent="showEditForm(props.row)"
-          :class="{ 'blocklisted': props.row.status === 'blocklisted' }">
-          {{ props.row.name }}
-          <copy-text :text="`${props.row.name}`" hide-text />
-        </a>
-      </b-table-column>
-
       <b-table-column v-slot="props" field="lists" :label="$t('globals.terms.lists')" header-class="cy-lists" centered>
         {{ listCount(props.row.lists) }}
       </b-table-column>
 
+      <b-table-column v-slot="props" field="funnel_stage" :label="$t('funnel.stage')"
+        header-class="cy-funnel-stage">
+        <b-tag size="is-small">{{ stageLabel(props.row) }}</b-tag>
+      </b-table-column>
+
+      <b-table-column v-slot="props" field="crm_sent" :label="$t('contacts.sent')" centered
+        header-class="cy-crm_sent is-hidden-touch" cell-class="is-hidden-touch">
+        {{ engagementNum(props.row, 'sends_sent') }}
+      </b-table-column>
+
+      <b-table-column v-slot="props" field="crm_opened" :label="$t('contacts.opened')" centered
+        header-class="cy-crm_opened is-hidden-touch" cell-class="is-hidden-touch">
+        {{ engagementNum(props.row, 'opened') }}
+      </b-table-column>
+
+      <b-table-column v-slot="props" field="crm_clicked" :label="$t('contacts.clicked')" centered
+        header-class="cy-crm_clicked is-hidden-touch" cell-class="is-hidden-touch">
+        {{ engagementNum(props.row, 'clicked') }}
+      </b-table-column>
+
+      <b-table-column v-slot="props" field="crm_last_sent" :label="$t('contacts.lastSent')"
+        header-class="cy-crm_last_sent is-hidden-touch" cell-class="is-hidden-touch date-cell">
+        {{ engagementDate(props.row) }}
+      </b-table-column>
+
       <b-table-column v-slot="props" field="created_at" :label="$t('globals.fields.createdAt')"
-        header-class="cy-created_at" sortable>
-        {{ $utils.niceDate(props.row.createdAt) }}
+        header-class="cy-created_at" cell-class="date-cell" sortable>
+        {{ $utils.shortDate(props.row.createdAt) }}
       </b-table-column>
 
       <b-table-column v-slot="props" field="updated_at" :label="$t('globals.fields.updatedAt')"
-        header-class="cy-updated_at" sortable>
-        {{ $utils.niceDate(props.row.updatedAt) }}
+        header-class="cy-updated_at" cell-class="date-cell" sortable>
+        {{ $utils.shortDate(props.row.updatedAt) }}
       </b-table-column>
 
       <b-table-column v-slot="props" cell-class="actions" align="right">
         <div>
+          <router-link :to="{ name: 'crmContact', params: { email: props.row.email } }" data-cy="btn-timeline"
+            :aria-label="$t('contacts.viewTimeline')">
+            <b-tooltip :label="$t('contacts.viewTimeline')" type="is-dark">
+              <b-icon icon="clock-start" size="is-small" />
+            </b-tooltip>
+          </router-link>
           <a :href="`/api/subscribers/${props.row.id}/export`" data-cy="btn-download"
             :aria-label="$t('subscribers.downloadData')">
             <b-tooltip :label="$t('subscribers.downloadData')" type="is-dark">
@@ -199,6 +236,14 @@ import { uris } from '../constants';
 import SubscriberBulkList from './SubscriberBulkList.vue';
 import SubscriberForm from './SubscriberForm.vue';
 import CopyText from '../components/CopyText.vue';
+import {
+  FUNNEL_STAGES, deriveStage, stageByID, stageQuery,
+} from '../funnel';
+
+// How long a failed engagement call suppresses further ones. Long enough that a
+// CRM that is down does not mean a request and a toast on every page turn, short
+// enough that one that comes back is picked up without a browser reload.
+const CRM_RETRY_MS = 5 * 60 * 1000;
 
 export default Vue.extend({
   components: {
@@ -224,6 +269,20 @@ export default Vue.extend({
       },
 
       queryInput: '',
+
+      // Funnel stage filter. Empty means every stage.
+      stageFilter: '',
+
+      // True only when this view switched to advanced search in order to apply
+      // a stage filter, so that clearing the filter can undo a mode change the
+      // operator did not ask for without undoing one they did.
+      stageOpenedAdvanced: false,
+
+      // CRM engagement for the rows on screen, keyed by lowercased e-mail.
+      // Empty until (and unless) the CRM answers.
+      engagement: {},
+      engagementToken: 0,
+      crmFailedAt: 0,
 
       // Query params to filter the getSubscribers() API call.
       queryParams: {
@@ -255,6 +314,10 @@ export default Vue.extend({
       if (!this.isSearchAdvanced) {
         this.queryInput = '';
         this.queryParams.queryExp = '';
+        // Resetting the query throws the stage clause away with it, so the
+        // select must not go on claiming a filter that is no longer applied.
+        this.stageFilter = '';
+        this.stageOpenedAdvanced = false;
         this.queryParams.page = 1;
         this.querySubscribers();
         this.$refs.query.focus();
@@ -262,18 +325,170 @@ export default Vue.extend({
       }
 
       // Toggling to advanced search.
-      const q = this.queryInput.replace(/'/, "''").trim();
+      const q = this.simpleQueryExp();
       if (q) {
-        if (this.$utils.validateEmail(q)) {
-          this.queryParams.queryExp = `email = '${q.toLowerCase()}'`;
-        } else {
-          this.queryParams.queryExp = `(name ~* '${q}' OR email ~* '${q.toLowerCase()}')`;
-        }
+        this.queryParams.queryExp = q;
       }
 
       // Toggling to advanced search.
       this.$nextTick(() => {
         this.$refs.queryExp.focus();
+      });
+    },
+
+    // What the operator typed in the simple search box, as the SQL expression
+    // the advanced box would hold. Factored out because the stage filter has to
+    // switch to advanced mode too, and it must carry their search across rather
+    // than silently drop it.
+    simpleQueryExp() {
+      const q = this.queryInput.replace(/'/, "''").trim();
+      if (!q) {
+        return '';
+      }
+
+      if (this.$utils.validateEmail(q)) {
+        return `email = '${q.toLowerCase()}'`;
+      }
+
+      return `(name ~* '${q}' OR email ~* '${q.toLowerCase()}')`;
+    },
+
+    // The operator's own expression, with our stage clause taken back out.
+    //
+    // Recovered from the text rather than stashed away when the filter was
+    // applied: the advanced box stays editable while a stage is selected, so a
+    // stashed copy would go stale the moment they typed in it, and clearing the
+    // filter would then restore a query they had already changed.
+    withoutStageClause(exp) {
+      const e = (exp || '').trim();
+
+      for (let i = 0; i < FUNNEL_STAGES.length; i += 1) {
+        const q = stageQuery(FUNNEL_STAGES[i].id);
+        if (e === q) {
+          return '';
+        }
+
+        const suffix = ` and (${q})`;
+        if (e.endsWith(suffix)) {
+          return e.slice(0, e.length - suffix.length).trim();
+        }
+      }
+
+      return e;
+    },
+
+    // The stage filter goes through the same advanced query the operator could
+    // have typed themselves, so it applies to the whole set and listmonk's
+    // pagination and total stay true. Filtering the loaded page instead would
+    // leave both of them lying.
+    //
+    // An expression already in the box is kept and ANDed with, not replaced.
+    // Refusing would have been defensible too, but the two filters answer
+    // different questions ("who am I looking at" and "how far have they got")
+    // and they compose. What is not acceptable is throwing either away without
+    // saying so, which is why the stage clause is appended in a shape that can
+    // be recognised and removed again.
+    onStageFilter(id) {
+      const base = this.isSearchAdvanced
+        ? this.withoutStageClause(this.queryParams.queryExp)
+        : this.simpleQueryExp();
+
+      if (!id) {
+        this.queryParams.queryExp = base;
+
+        // Only undo the mode switch if this view made it and there is nothing
+        // of the operator's left in the box to show them.
+        if (this.stageOpenedAdvanced && !base) {
+          this.isSearchAdvanced = false;
+          this.stageOpenedAdvanced = false;
+        }
+
+        this.querySubscribers({ page: 1 });
+        return;
+      }
+
+      const q = stageQuery(id);
+      this.queryParams.queryExp = base ? `(${base}) and (${q})` : q;
+
+      if (!this.isSearchAdvanced) {
+        this.stageOpenedAdvanced = true;
+        this.isSearchAdvanced = true;
+
+        // The API takes a search or an expression, not both, and
+        // querySubscribers() drops the search whenever an expression is set.
+        // Emptying the box stops it showing a search that is not applied.
+        this.queryInput = '';
+        this.queryParams.search = '';
+      }
+
+      this.querySubscribers({ page: 1 });
+    },
+
+    // Where a row has got to, derived from the attributes the hourly sync has
+    // already written onto it. No request: listmonk sends attribs with the row.
+    stageLabel(row) {
+      const s = stageByID(deriveStage(row.attribs));
+      return s ? this.$t(s.i18n) : '';
+    },
+
+    // A dash, not a zero, when the CRM has not answered. A printed zero cannot
+    // be told apart from a real one, and "we never sent them anything" and "we
+    // do not know" are very different things to put next to a name.
+    engagementNum(row, field) {
+      const e = this.engagement[(row.email || '').toLowerCase()];
+      return e ? e[field] : '-';
+    },
+
+    engagementDate(row) {
+      const e = this.engagement[(row.email || '').toLowerCase()];
+      return e && e.last_sent_at ? this.$utils.shortDate(e.last_sent_at) : '-';
+    },
+
+    // One call for the page that has just rendered, never one per row.
+    //
+    // Nothing waits on this. The rows come from listmonk and are on screen
+    // already; these columns fill in afterwards if the CRM answers. This is
+    // listmonk's own subscribers screen and it has to keep working when the
+    // drip API is down, so a failure is swallowed and remembered rather than
+    // repeated on every page turn.
+    fetchEngagement() {
+      // A previous page's numbers must never sit under this page's rows.
+      this.engagement = {};
+
+      const rows = this.subscribers.results || [];
+      if (rows.length === 0) {
+        return;
+      }
+
+      if (this.crmFailedAt && Date.now() - this.crmFailedAt < CRM_RETRY_MS) {
+        return;
+      }
+
+      // Deduplicated and capped because the endpoint rejects more than 500
+      // addresses, and a rejected call would cost the whole page its numbers.
+      const emails = [...new Set(rows.map((r) => (r.email || '').toLowerCase()).filter((e) => e))]
+        .slice(0, 500);
+
+      this.engagementToken += 1;
+      const token = this.engagementToken;
+
+      this.$api.getCrmEngagement(emails).then((data) => {
+        // A slow answer for an older page must not land on a newer one.
+        if (token !== this.engagementToken) {
+          return;
+        }
+
+        const out = {};
+        (data.results || []).forEach((r) => {
+          out[(r.email || '').toLowerCase()] = r;
+        });
+        this.engagement = out;
+        this.crmFailedAt = 0;
+      }).catch(() => {
+        if (token !== this.engagementToken) {
+          return;
+        }
+        this.crmFailedAt = Date.now();
       });
     },
 
@@ -505,8 +720,21 @@ export default Vue.extend({
     },
   },
 
+  watch: {
+    // Every path that loads rows ends up here, including the edit form and the
+    // refresh event, so the engagement call hangs off the rows themselves
+    // rather than off each caller of querySubscribers().
+    'subscribers.results': function onSubscriberResults() {
+      this.fetchEngagement();
+    },
+  },
+
   computed: {
     ...mapState(['subscribers', 'lists', 'loading']),
+
+    funnelStages() {
+      return FUNNEL_STAGES;
+    },
 
     numSelectedSubscribers() {
       if (this.bulk.all) {
