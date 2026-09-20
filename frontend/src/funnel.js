@@ -14,8 +14,8 @@
 export const FUNNEL_STAGES = [
   { id: 'signed_up', rank: 0, i18n: 'funnel.signedUp' },
   { id: 'survey_done', rank: 1, i18n: 'funnel.surveyDone' },
-  { id: 'agent_installed', rank: 2, i18n: 'funnel.agentInstalled' },
-  { id: 'iracing_connected', rank: 3, i18n: 'funnel.iracingConnected' },
+  { id: 'iracing_connected', rank: 2, i18n: 'funnel.iracingConnected' },
+  { id: 'agent_installed', rank: 3, i18n: 'funnel.agentInstalled' },
   { id: 'telemetry_uploaded', rank: 4, i18n: 'funnel.telemetryUploaded' },
   { id: 'purchased', rank: 5, i18n: 'funnel.purchased' },
 ];
@@ -41,8 +41,8 @@ export function deriveStage(attribs) {
 
   if (isTrue(a.has_active_purchase)) return 'purchased';
   if (isPositive(a.telemetry_sessions) || isPositive(a.telemetry_laps)) return 'telemetry_uploaded';
-  if (isTrue(a.iracing_connected)) return 'iracing_connected';
   if (isPresent(a.agent_last_seen)) return 'agent_installed';
+  if (isTrue(a.iracing_connected)) return 'iracing_connected';
   if (isTrue(a.survey_completed)) return 'survey_done';
   return 'signed_up';
 }
@@ -63,10 +63,10 @@ const SURVEY = "coalesce((subscribers.attribs->>'survey_completed')::boolean, fa
 const QUERIES = {
   purchased: PURCHASED,
   telemetry_uploaded: `not ${PURCHASED} and ${TELEMETRY}`,
-  iracing_connected: `not ${PURCHASED} and not ${TELEMETRY} and ${IRACING}`,
-  agent_installed: `not ${PURCHASED} and not ${TELEMETRY} and not ${IRACING} and ${AGENT}`,
-  survey_done: `not ${PURCHASED} and not ${TELEMETRY} and not ${IRACING} and not ${AGENT} and ${SURVEY}`,
-  signed_up: `not ${PURCHASED} and not ${TELEMETRY} and not ${IRACING} and not ${AGENT} and not ${SURVEY}`,
+  agent_installed: `not ${PURCHASED} and not ${TELEMETRY} and ${AGENT}`,
+  iracing_connected: `not ${PURCHASED} and not ${TELEMETRY} and not ${AGENT} and ${IRACING}`,
+  survey_done: `not ${PURCHASED} and not ${TELEMETRY} and not ${AGENT} and not ${IRACING} and ${SURVEY}`,
+  signed_up: `not ${PURCHASED} and not ${TELEMETRY} and not ${AGENT} and not ${IRACING} and not ${SURVEY}`,
 };
 
 export const stageQuery = (id) => QUERIES[id] || null;
