@@ -991,7 +991,23 @@ section.lists {
   /* Sim Sense fork: this screen is the one people live in, so it is laid out
      as a search bar sitting over a plain full-width table. The count moves out
      of the heading and under it, because "Subscribers (3,644)" reads as part
-     of the name of the page and the number is a fact about the result set. */
+     of the name of the page and the number is a fact about the result set.
+
+     The page's own 30px gutter is pulled back here and handed to the things
+     inside it instead, so that the rules and the toolbar band run the full
+     width of the window while the text still sits off the edge. A rule that
+     stops short of the edge reads as the border of a box, which is the one
+     thing this table is not. */
+  $gutter: 24px;
+
+  margin-left: -30px;
+  margin-right: -30px;
+
+  .subs-header, .subscribers-controls, .crm-unavailable {
+    padding-left: $gutter;
+    padding-right: $gutter;
+  }
+
   .subs-header {
     display: flex;
     align-items: flex-start;
@@ -1060,8 +1076,13 @@ section.lists {
       height: 44px;
     }
 
+    /* Advanced is a mode switch, not a link, so it is shaped like the button
+       beside it and only its colour says it does something different. */
     .control-buttons .button.is-ghost {
+      background: $white;
+      border: 1px solid $grey-lighter;
       color: $primary;
+      font-weight: 600;
       text-decoration: none;
 
       &:hover, &.is-on {
@@ -1088,7 +1109,7 @@ section.lists {
   .b-table {
     .top.level, .bottom.level {
       margin-bottom: 0;
-      padding: 8px 12px;
+      padding: 8px $gutter;
     }
 
     .top.level {
@@ -1128,6 +1149,14 @@ section.lists {
 
     td {
       vertical-align: middle;
+    }
+
+    th:first-child, td:first-child {
+      padding-left: $gutter;
+    }
+
+    th:last-child, td:last-child {
+      padding-right: $gutter;
     }
   }
 
@@ -1190,6 +1219,11 @@ section.lists {
 }
 
 @media screen and (max-width: 900px) {
+  .subscribers {
+    margin-left: -20px;
+    margin-right: -20px;
+  }
+
   .subscribers .subscribers-controls .control-row {
     display: block;
 

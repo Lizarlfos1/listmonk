@@ -1,101 +1,89 @@
 <template>
   <section class="subscribers">
-    <header class="columns page-header">
-      <div class="column is-10">
+    <header class="page-header subs-header">
+      <div class="subs-heading">
         <h1 class="title is-4">
           {{ $t('globals.terms.subscribers') }}
-          <span v-if="!isNaN(subscribers.total)">
-            (<span data-cy="count">{{ subscribers.total }}</span>)
-          </span>
-          <span v-if="currentList">
+          <span v-if="currentList" class="has-text-grey has-text-weight-normal">
             &raquo; {{ currentList.name }}
-            <span v-if="queryParams.subStatus" class="has-text-grey has-text-weight-normal is-capitalized">({{
-              queryParams.subStatus }})</span>
+            <span v-if="queryParams.subStatus" class="is-capitalized">({{ queryParams.subStatus }})</span>
           </span>
         </h1>
+        <p v-if="!isNaN(subscribers.total)" class="subs-total" data-cy="count">
+          {{ $t('subscribers.totalCount', { num: $utils.formatNumber(subscribers.total) }) }}
+        </p>
       </div>
-      <div class="column has-text-right">
-        <b-field v-if="$can('subscribers:manage')" expanded>
-          <b-button expanded type="is-primary" icon-left="plus" @click="showNewForm" data-cy="btn-new" class="btn-new">
-            {{ $t('globals.buttons.new') }}
-          </b-button>
-        </b-field>
-      </div>
+
+      <b-button v-if="$can('subscribers:manage')" type="is-primary" icon-left="plus" @click="showNewForm"
+        data-cy="btn-new" class="btn-new">
+        {{ $t('globals.buttons.new') }}
+      </b-button>
     </header>
 
     <section class="subscribers-controls">
-      <div class="columns">
-        <div class="column is-8">
-          <form @submit.prevent="onSubmit">
-            <div>
-              <b-field addons>
-                <b-input @input="onSimpleQueryInput" v-model="queryInput" expanded
-                  :placeholder="$t('subscribers.queryPlaceholder')" icon="magnify" ref="query"
-                  :disabled="isSearchAdvanced" data-cy="search" />
-                <p class="controls">
-                  <b-button native-type="submit" type="is-primary" icon-left="magnify" :disabled="isSearchAdvanced"
-                    data-cy="btn-search" />
-                </p>
-              </b-field>
+      <form @submit.prevent="onSubmit">
+        <div class="control-row">
+          <b-field :label="$t('subscribers.search')" class="search-field">
+            <b-input @input="onSimpleQueryInput" @keydown.native.enter="onSubmit" v-model="queryInput" expanded
+              :placeholder="$t('subscribers.queryPlaceholder')" icon="magnify" ref="query"
+              :disabled="isSearchAdvanced" data-cy="search" />
+          </b-field>
 
-              <div v-if="isSearchAdvanced">
-                <b-input v-model="queryParams.queryExp" @keydown.native.enter="onAdvancedQueryEnter" type="textarea"
-                  ref="queryExp" placeholder="subscribers.name LIKE '%user%' or subscribers.status='blocklisted'"
-                  data-cy="query" />
-                <span class="is-size-6 has-text-grey">
-                  {{ $t('subscribers.advancedQueryHelp') }}.{{ ' ' }}
-                  <a href="https://listmonk.app/docs/querying-and-segmentation" target="_blank"
-                    rel="noopener noreferrer">
-                    {{ $t('globals.buttons.learnMore') }}.
-                  </a>
-                </span>
-                <div class="buttons">
-                  <b-button native-type="submit" type="is-primary" icon-left="magnify" data-cy="btn-query">
-                    {{
-                      $t('subscribers.query') }}
-                  </b-button>
-                  <b-button @click.prevent="toggleAdvancedSearch" icon-left="cancel" data-cy="btn-query-reset">
-                    {{ $t('subscribers.reset') }}
-                  </b-button>
-                </div>
-              </div><!-- advanced query -->
-            </div>
-          </form>
-          <div v-if="!isSearchAdvanced" class="toggle-advanced">
-            <a href="#" @click.prevent="toggleAdvancedSearch" data-cy="btn-advanced-search">
-              <b-icon icon="cog-outline" size="is-small" />
-              {{ $t('subscribers.advancedQuery') }}
-            </a>
-          </div>
-        </div><!-- search -->
-
-        <div class="column is-4">
-          <b-field :label="$t('funnel.stage')" label-position="on-border">
+          <!-- The note about the stage being derived is worth reading once and
+               clutter on every visit, so it appears only while a stage is
+               actually filtering the list. -->
+          <b-field :label="$t('funnel.stage')" class="stage-field"
+            :message="stageFilter ? $t('funnel.derivedHelp') : ''">
             <b-select v-model="stageFilter" @input="onStageFilter" expanded data-cy="stage-filter">
               <option value="">{{ $t('funnel.allStages') }}</option>
               <option v-for="s in funnelStages" :key="s.id" :value="s.id">{{ $t(s.i18n) }}</option>
             </b-select>
           </b-field>
-          <p class="is-size-7 has-text-grey">{{ $t('funnel.derivedHelp') }}</p>
-        </div><!-- funnel stage filter -->
-      </div>
+
+          <div class="control-buttons">
+            <b-button type="is-ghost" :class="{ 'is-on': isSearchAdvanced }" @click="toggleAdvancedSearch"
+              data-cy="btn-advanced-search">
+              {{ $t('subscribers.advancedQuery') }}
+            </b-button>
+            <b-button @click="exportSubscribers" data-cy="btn-export-subscribers">
+              {{ $t('subscribers.export') }}
+            </b-button>
+          </div>
+        </div><!-- search, stage and the two things you can do to a result set -->
+
+        <div v-if="isSearchAdvanced" class="advanced-query">
+          <b-input v-model="queryParams.queryExp" @keydown.native.enter="onAdvancedQueryEnter" type="textarea"
+            ref="queryExp" placeholder="subscribers.name LIKE '%user%' or subscribers.status='blocklisted'"
+            data-cy="query" />
+          <span class="is-size-7 has-text-grey">
+            {{ $t('subscribers.advancedQueryHelp') }}.{{ ' ' }}
+            <a href="https://listmonk.app/docs/querying-and-segmentation" target="_blank" rel="noopener noreferrer">
+              {{ $t('globals.buttons.learnMore') }}.
+            </a>
+          </span>
+          <div class="buttons">
+            <b-button native-type="submit" type="is-primary" icon-left="magnify" data-cy="btn-query">
+              {{ $t('subscribers.query') }}
+            </b-button>
+            <b-button @click.prevent="toggleAdvancedSearch" icon-left="cancel" data-cy="btn-query-reset">
+              {{ $t('subscribers.reset') }}
+            </b-button>
+          </div>
+        </div><!-- advanced query -->
+      </form>
     </section><!-- control -->
 
-    <p v-if="crmFailedAt > 0" class="is-size-7 has-text-grey" data-cy="crm-unavailable">
+    <p v-if="crmFailedAt > 0" class="is-size-7 has-text-grey crm-unavailable" data-cy="crm-unavailable">
       {{ $t('contacts.crmUnavailable') }}
     </p>
 
-    <br />
     <b-table :data="subscribers.results ?? []" :loading="loading.subscribers" @check-all="onTableCheck"
       @check="onTableCheck" :checked-rows.sync="bulk.checked" paginated backend-pagination pagination-position="both"
-      @page-change="onPageChange" :current-page="queryParams.page" :per-page="subscribers.perPage"
+      pagination-rounded @page-change="onPageChange" :current-page="queryParams.page" :per-page="subscribers.perPage"
       :total="subscribers.total" hoverable checkable backend-sorting @sort="onSort">
       <template #top-left>
-        <div class="actions">
-          <a class="a" href="#" @click.prevent="exportSubscribers" data-cy="btn-export-subscribers">
-            <b-icon icon="cloud-download-outline" size="is-small" />
-            {{ $t('subscribers.export') }}
-          </a>
+        <div class="actions table-meta">
+          <span class="showing" data-cy="showing">{{ showingRange }}</span>
           <template v-if="bulk.checked.length > 0">
             <a class="a" href="#" @click.prevent="showBulkListForm" data-cy="btn-manage-lists">
               <b-icon icon="format-list-bulleted-square" size="is-small" /> Manage lists
@@ -109,7 +97,7 @@
             <span class="a">
               {{ $t('globals.messages.numSelected', { num: numSelectedSubscribers }) }}
               <span v-if="!bulk.all && subscribers.total > subscribers.perPage">
-                &mdash;
+                &nbsp;
                 <a href="#" @click.prevent="selectAllSubscribers">
                   {{ $t('globals.messages.selectAll', { num: subscribers.total }) }}
                 </a>
@@ -120,7 +108,7 @@
       </template>
 
       <b-table-column v-slot="props" field="email" :label="$t('subscribers.email')" header-class="cy-email" sortable
-        :td-attrs="$utils.tdID">
+        cell-class="email-cell" :td-attrs="$utils.tdID">
         <a :href="`/subscribers/${props.row.id}`" @click.prevent="showEditForm(props.row)"
           :class="{ 'blocklisted': props.row.status === 'blocklisted' }">
           {{ props.row.email }}
@@ -147,23 +135,23 @@
         {{ listCount(props.row.lists) }}
       </b-table-column>
 
-      <b-table-column v-slot="props" field="funnel_stage" :label="$t('funnel.stage')"
+      <b-table-column v-slot="props" field="funnel_stage" :label="$t('funnel.stage')" cell-class="stage-cell"
         header-class="cy-funnel-stage">
         <b-tag size="is-small">{{ stageLabel(props.row) }}</b-tag>
       </b-table-column>
 
       <b-table-column v-slot="props" field="crm_sent" :label="$t('contacts.sent')" centered
-        header-class="cy-crm_sent is-hidden-touch" cell-class="is-hidden-touch">
+        header-class="cy-crm_sent is-hidden-touch" cell-class="is-hidden-touch num-cell">
         {{ engagementNum(props.row, 'sends_sent') }}
       </b-table-column>
 
       <b-table-column v-slot="props" field="crm_opened" :label="$t('contacts.opened')" centered
-        header-class="cy-crm_opened is-hidden-touch" cell-class="is-hidden-touch">
+        header-class="cy-crm_opened is-hidden-touch" cell-class="is-hidden-touch num-cell">
         {{ engagementNum(props.row, 'opened') }}
       </b-table-column>
 
       <b-table-column v-slot="props" field="crm_clicked" :label="$t('contacts.clicked')" centered
-        header-class="cy-crm_clicked is-hidden-touch" cell-class="is-hidden-touch">
+        header-class="cy-crm_clicked is-hidden-touch" cell-class="is-hidden-touch num-cell">
         {{ engagementNum(props.row, 'clicked') }}
       </b-table-column>
 
@@ -182,7 +170,7 @@
         {{ $utils.shortDate(props.row.updatedAt) }}
       </b-table-column>
 
-      <b-table-column v-slot="props" cell-class="actions" align="right">
+      <b-table-column v-slot="props" cell-class="actions row-actions" align="right">
         <div>
           <router-link :to="{ name: 'crmContact', params: { email: props.row.email } }" data-cy="btn-timeline"
             :aria-label="$t('contacts.viewTimeline')">
@@ -734,6 +722,26 @@ export default Vue.extend({
 
     funnelStages() {
       return FUNNEL_STAGES;
+    },
+
+    // Which slice of the result set is on screen. Counted off the rows that
+    // actually came back rather than off page * perPage, so the last page says
+    // where it really ends.
+    showingRange() {
+      const total = this.subscribers.total || 0;
+      const rows = (this.subscribers.results || []).length;
+      if (!total || !rows) {
+        return '';
+      }
+
+      const perPage = parseInt(this.subscribers.perPage, 10) || rows;
+      const from = ((this.queryParams.page - 1) * perPage) + 1;
+
+      return this.$t('subscribers.showing', {
+        from: this.$utils.formatNumber(from),
+        to: this.$utils.formatNumber(Math.min((from + rows) - 1, total)),
+        total: this.$utils.formatNumber(total),
+      });
     },
 
     numSelectedSubscribers() {
