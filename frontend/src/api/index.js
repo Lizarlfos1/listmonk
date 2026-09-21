@@ -624,6 +624,41 @@ export const deleteSequenceStep = (stepID) => http.delete(
   { camelCase: false },
 );
 
+// A/B arms on a step. A variant is a whole template, not a subject line:
+// listmonk's /api/tx renders the subject from the template and takes no
+// override, so two subject lines means two templates.
+export const getStepVariants = (stepID) => http.get(
+  `/api/crm/steps/${stepID}/variants`,
+  {},
+  { camelCase: false },
+);
+
+export const getStepVariantStats = (stepID) => http.get(
+  `/api/crm/steps/${stepID}/variants/stats`,
+  {},
+  { camelCase: false },
+);
+
+export const createStepVariant = (stepID, data) => http.post(
+  `/api/crm/steps/${stepID}/variants`,
+  data,
+  { camelCase: false },
+);
+
+export const updateStepVariant = (variantID, data) => http.patch(
+  `/api/crm/variants/${variantID}`,
+  data,
+  { camelCase: false },
+);
+
+// Refused by the API once the arm has sent anything: the sends name it, and
+// deleting the row would turn a finished experiment into a column of nulls.
+// Weight 0 is the way to retire one.
+export const deleteStepVariant = (variantID) => http.delete(
+  `/api/crm/variants/${variantID}`,
+  { camelCase: false },
+);
+
 // Partial update, draft and paused sequences only. The UI uses it for one thing:
 // choosing between one-time and continuous enrolment. That choice is deliberately
 // not in the MCP server's field whitelist, so it is a human's to make here.

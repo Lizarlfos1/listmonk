@@ -68,6 +68,98 @@
             <p class="is-size-7 has-text-grey mt-1">{{ $t('sequences.previewHelp') }}</p>
           </div>
         </div>
+
+        <!-- A/B split.
+             Hidden entirely on a step that is not split and cannot be, which
+             is every step of a live sequence: offering a control that the API
+             will refuse is worse than not offering it. -->
+        <div class="variants" v-if="step && (variants.length || !readonly)">
+          <h3 class="title is-6 mb-1">{{ $t('sequences.splitTitle') }}</h3>
+
+          <p v-if="!variants.length" class="is-size-7 has-text-grey mb-3">
+            {{ $t('sequences.splitEmpty') }}
+            <b-button v-if="!readonly && templateID" size="is-small" type="is-text"
+              @click="startSplit">
+{{ $t('sequences.splitStart') }}
+</b-button>
+          </p>
+
+          <b-table v-if="variants.length" :data="variants" :loading="loadingVariants" narrowed>
+            <b-table-column v-slot="p" field="label" :label="$t('sequences.splitArm')" width="80">
+              <strong>{{ p.row.label }}</strong>
+            </b-table-column>
+
+            <b-table-column v-slot="p" field="template" :label="$t('sequences.template')">
+              <b-select v-model="p.row.listmonk_template_id" size="is-small" expanded
+                :disabled="readonly" @input="saveVariant(p.row)">
+                <option v-for="t in txTemplates" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </b-select>
+            </b-table-column>
+
+            <b-table-column v-slot="p" field="subject" :label="$t('sequences.subject')">
+              <b-input v-model="p.row.subject" size="is-small" :disabled="readonly"
+                @blur="saveVariant(p.row)" />
+            </b-table-column>
+
+            <!-- Relative, not percentages: 1 and 1 is even, 3 and 1 is 75/25.
+                 0 retires an arm without deleting what it already sent. -->
+            <b-table-column v-slot="p" field="weight" :label="$t('sequences.splitWeight')" width="110">
+              <b-numberinput v-model="p.row.weight" :min="0" :max="99" size="is-small"
+                controls-position="compact" :disabled="readonly" @input="saveVariant(p.row)" />
+            </b-table-column>
+
+            <b-table-column v-slot="p" :label="$t('sequences.splitShare')" width="90">
+              <span class="has-text-grey">{{ share(p.row) }}</span>
+            </b-table-column>
+
+            <b-table-column v-slot="p" :label="$t('sequences.splitSent')" width="80">
+              {{ p.row.sent_count }}
+            </b-table-column>
+
+            <b-table-column v-slot="p" width="40">
+              <b-button v-if="!readonly" size="is-small" type="is-text"
+                icon-left="trash-can-outline" :title="$t('globals.buttons.delete')"
+                @click="removeVariant(p.row)" />
+            </b-table-column>
+          </b-table>
+
+          <div v-if="variants.length" class="mt-2">
+            <b-button v-if="!readonly" size="is-small" icon-left="plus" @click="addVariant">
+              {{ $t('sequences.splitAdd') }}
+            </b-button>
+            <span class="is-size-7 has-text-grey ml-3">{{ $t('sequences.splitHelp') }}</span>
+          </div>
+
+          <!-- Results, once anything has gone out. No winner and no p value:
+               with a few hundred people an arm, the honest output is the
+               counts, and deciding is the part a human does. -->
+          <div v-if="anySent" class="mt-4">
+            <p class="eyebrow">{{ $t('sequences.splitResults') }}</p>
+            <table class="table is-narrow is-fullwidth is-size-7">
+              <thead>
+                <tr>
+                  <th>{{ $t('sequences.splitArm') }}</th>
+                  <th class="has-text-right">{{ $t('sequences.splitSent') }}</th>
+                  <th class="has-text-right">{{ $t('sequences.splitDelivered') }}</th>
+                  <th class="has-text-right">{{ $t('sequences.splitOpened') }}</th>
+                  <th class="has-text-right">{{ $t('sequences.splitClicked') }}</th>
+                  <th class="has-text-right">{{ $t('sequences.splitClickRate') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in stats" :key="r.id">
+                  <td><strong>{{ r.label }}</strong></td>
+                  <td class="has-text-right">{{ r.sent }}</td>
+                  <td class="has-text-right">{{ r.delivered }}</td>
+                  <td class="has-text-right has-text-grey">{{ r.opened }}</td>
+                  <td class="has-text-right">{{ r.clicked }}</td>
+                  <td class="has-text-right">{{ rate(r.clicked, r.delivered) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="is-size-7 has-text-grey">{{ $t('sequences.splitOpensWarning') }}</p>
+          </div>
+        </div>
       </section>
 
       <footer class="modal-card-foot">
@@ -95,7 +187,10 @@
 
 <script>
 import Vue from 'vue';
-import { createSequenceStep, getTemplates, updateSequenceStep } from '../api';
+import {
+  createSequenceStep, createStepVariant, deleteStepVariant, getStepVariantStats,
+  getStepVariants, getTemplates, updateSequenceStep, updateStepVariant,
+} from '../api';
 import TemplateTestDialog from './TemplateTestDialog.vue';
 
 // One step: a day, a subject, the template that renders it, and what that
@@ -137,6 +232,9 @@ export default Vue.extend({
       loadingTemplates: false,
       saving: false,
       testItem: null,
+      variants: [],
+      stats: [],
+      loadingVariants: false,
     };
   },
 
@@ -156,6 +254,15 @@ export default Vue.extend({
     clashingDay() {
       const taken = this.takenDays.filter((d) => !this.step || d !== this.step.day_offset);
       return taken.indexOf(Number(this.dayOffset)) > -1;
+    },
+
+    // Weights are relative, so a share is only meaningful against their total.
+    totalWeight() {
+      return this.variants.reduce((sum, v) => sum + (Number(v.weight) || 0), 0);
+    },
+
+    anySent() {
+      return this.stats.some((r) => r.sent > 0);
     },
 
     canSave() {
@@ -191,7 +298,106 @@ export default Vue.extend({
       }
       this.saving = false;
       this.testItem = null;
+      this.variants = [];
+      this.stats = [];
       this.loadTemplates();
+      if (this.step) { this.loadVariants(); }
+    },
+
+    async loadVariants() {
+      this.loadingVariants = true;
+      try {
+        const [list, stats] = await Promise.all([
+          getStepVariants(this.step.id),
+          getStepVariantStats(this.step.id),
+        ]);
+        this.variants = (list && list.variants) || [];
+        this.stats = (stats && stats.variants) || [];
+      } catch (e) {
+        // A step with no variants is the common case and not an error worth a
+        // toast, so only a real failure is surfaced.
+        this.$utils.toast((e.response && e.response.data && e.response.data.message) || e.message, 'is-danger');
+      } finally {
+        this.loadingVariants = false;
+      }
+    },
+
+    // Splitting starts from what the step already sends, so arm A is the
+    // control rather than a blank row somebody has to fill in twice. B starts
+    // as a copy of it: the point of a subject test is two templates that
+    // differ in one line, and the fastest way there is to duplicate and edit.
+    async startSplit() {
+      // Sequentially, not Promise.all: the two inserts race on
+      // unique (step_id, label) otherwise, and the loser's error is noise
+      // rather than information.
+      await this.createArm('A', this.templateID, this.subject);
+      await this.createArm('B', this.templateID, this.subject);
+      this.loadVariants();
+    },
+
+    async addVariant() {
+      // Next free letter, so a third arm is C without anybody choosing.
+      const used = this.variants.map((v) => v.label);
+      let code = 'A'.charCodeAt(0);
+      while (used.indexOf(String.fromCharCode(code)) > -1) { code += 1; }
+      const base = this.variants[this.variants.length - 1] || {};
+      await this.createArm(
+        String.fromCharCode(code),
+        base.listmonk_template_id || this.templateID,
+        base.subject || this.subject,
+      );
+      this.loadVariants();
+    },
+
+    async createArm(label, templateID, subject) {
+      try {
+        await createStepVariant(this.step.id, {
+          label,
+          listmonk_template_id: templateID,
+          subject,
+          weight: 1,
+        });
+      } catch (e) {
+        this.$utils.toast((e.response && e.response.data && e.response.data.message) || e.message, 'is-danger');
+      }
+    },
+
+    async saveVariant(row) {
+      try {
+        await updateStepVariant(row.id, {
+          listmonk_template_id: row.listmonk_template_id,
+          subject: row.subject,
+          weight: Number(row.weight),
+        });
+      } catch (e) {
+        this.$utils.toast((e.response && e.response.data && e.response.data.message) || e.message, 'is-danger');
+        this.loadVariants();
+      }
+    },
+
+    removeVariant(row) {
+      this.$utils.confirm(this.$t('sequences.splitDeleteConfirm', { label: row.label }), async () => {
+        try {
+          await deleteStepVariant(row.id);
+        } catch (e) {
+          // The API refuses an arm that has sent, and its message says to set
+          // the weight to 0 instead. Shown as it came, because the reason is
+          // the useful part.
+          this.$utils.toast((e.response && e.response.data && e.response.data.message) || e.message, 'is-danger');
+        }
+        this.loadVariants();
+      });
+    },
+
+    share(row) {
+      if (!this.totalWeight) { return '-'; }
+      if (!Number(row.weight)) { return this.$t('sequences.splitRetired'); }
+      return `${Math.round((Number(row.weight) / this.totalWeight) * 100)}%`;
+    },
+
+    rate(part, whole) {
+      if (!whole) { return '-'; }
+      return `${Math.round((part / whole) * 1000) / 10}%`;
     },
 
     async loadTemplates() {
