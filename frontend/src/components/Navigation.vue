@@ -3,6 +3,13 @@
     <b-menu-item :to="{ name: 'dashboard' }" tag="router-link" :active="activeItem.dashboard"
       icon="view-dashboard-variant-outline" :label="$t('menu.dashboard')" /><!-- dashboard -->
 
+    <!-- Mirrors the rail's Product analytics item. Off-site, so it is a plain
+         anchor and never carries an active state. Kept beside the dashboard in
+         both navs: they answer the same question from two different datasets. -->
+    <b-menu-item tag="a" href="https://us.posthog.com/project/459544/dashboard/2117404"
+      target="_blank" rel="noopener noreferrer"
+      icon="chart-bar" label="PostHog dashboard" data-cy="posthog-dashboard" />
+
     <b-menu-item :expanded="isOpen('crm-campaigns')" :active="isOpen('crm-campaigns')" data-cy="crm-campaigns"
       @update:active="(state) => toggleGroup('crm-campaigns', state)" icon="file-multiple-outline"
       :label="$t('crmCampaigns.title')">

@@ -25,7 +25,12 @@
         <h3 v-if="g.heading">{{ g.heading }}</h3>
         <ul>
           <li v-for="item in g.items" :key="item.dataCy">
-            <router-link :to="item.to" :data-cy="item.dataCy" :class="{ 'is-active': isItemActive(item) }">
+            <!-- An item is either a page of this admin or a link off it. The
+                 external one never lights up: it is not somewhere you can be. -->
+            <a v-if="item.href" :href="item.href" :data-cy="item.dataCy" target="_blank" rel="noopener noreferrer">
+              {{ item.label }} <b-icon icon="chevron-right" size="is-small" />
+            </a>
+            <router-link v-else :to="item.to" :data-cy="item.dataCy" :class="{ 'is-active': isItemActive(item) }">
               {{ item.label }}
             </router-link>
           </li>
@@ -36,6 +41,16 @@
 </template>
 
 <script>
+// Where the product analytics live. Hardcoded rather than read from the
+// environment because the frontend is compiled into the Go binary, so a build
+// time value and a hardcoded one are the same thing with different ceremony,
+// and a wrong one here is a dead link rather than a broken page.
+//
+// Project 459544, dashboard 2117404: the funnel the CRM reports on, built from
+// the events the edge functions emit. The CRM's own numbers stay in the CRM;
+// this is the behavioural side that Listmonk and the drip layer cannot see.
+const POSTHOG_DASHBOARD_URL = 'https://us.posthog.com/project/459544/dashboard/2117404';
+
 // The two-column admin navigation: a permanent rail of sections, and a panel
 // listing the pages of the section under the pointer. The panel is a flyout
 // over the page, not a column beside it, so appearing and disappearing with
@@ -88,7 +103,9 @@ export default {
     // Hovering already shows what is in a section, so the click is free to do
     // the thing hovering cannot: go there.
     selectSection(s) {
-      const first = s.groups.reduce((acc, g) => acc.concat(g.items), [])[0];
+      const first = s.groups
+        .reduce((acc, g) => acc.concat(g.items), [])
+        .find((i) => !i.href);
       if (first && !this.isItemActive(first)) {
         this.$router.push(first.to);
       }
@@ -101,6 +118,11 @@ export default {
     // though you had navigated out of the section you are plainly still in.
     // `item.routes` names the extra ones, the same way a section's does.
     isItemActive(item) {
+      // An external link has no route and can never be the current page.
+      if (item.href) {
+        return false;
+      }
+
       const names = item.routes || [item.to.name];
       if (names.indexOf(this.$route.name) < 0) {
         return false;
@@ -165,6 +187,16 @@ export default {
               heading: 'Overview',
               items: [
                 { to: { name: 'dashboard' }, label: this.$t('menu.dashboard'), dataCy: 'all-dashboard' },
+              ],
+            },
+            {
+              heading: 'Product analytics',
+              items: [
+                {
+                  href: POSTHOG_DASHBOARD_URL,
+                  label: 'PostHog dashboard',
+                  dataCy: 'posthog-dashboard',
+                },
               ],
             },
           ],
